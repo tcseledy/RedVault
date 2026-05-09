@@ -23,5 +23,6 @@ PasswordManagerApp is a secure password manager built with Flask and Argon2 hash
 
 ```bash
 python3 app.py
+```
 
 Then open the local Flask URL in your browser.
