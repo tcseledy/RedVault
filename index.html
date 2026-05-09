@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Password Vault</title>
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #101828, #1d2939, #344054);
+      color: #f9fafb;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .vault-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+    }
+
+    .form-control,
+    .form-select {
+      background-color: rgba(255, 255, 255, 0.95);
+      border: none;
+    }
+
+    .btn-primary {
+      background-color: #7c3aed;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background-color: #6d28d9;
+    }
+
+    .btn-outline-light:hover {
+      color: #101828;
+    }
+
+    .password-box {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      word-break: break-all;
+      font-family: monospace;
+    }
+
+    .table {
+      --bs-table-bg: transparent;
+      --bs-table-color: #f9fafb;
+      --bs-table-border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .badge-secure {
+      background-color: rgba(124, 58, 237, 0.25);
+      color: #ddd6fe;
+      border: 1px solid rgba(196, 181, 253, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark px-4 py-3">
+    <span class="navbar-brand mb-0 h1">Secure Password Vault</span>
+    <span class="badge badge-secure rounded-pill px-3 py-2">Argon2id + AES-GCM</span>
+  </nav>
+
+  <main class="container py-4">
+    <div class="row justify-content-center mb-4">
+      <div class="col-lg-9">
+        <div class="vault-card p-4 p-md-5">
+          <h1 class="fw-bold mb-2">Local Encrypted Password Manager</h1>
+          <p class="text-light opacity-75 mb-0">
+            Store, generate, search, and retrieve passwords from your encrypted local vault.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+      <div class="col-lg-5">
+        <div class="vault-card p-4 h-100">
+          <h3 class="mb-3">Unlock Vault</h3>
+          <form id="unlockForm">
+            <label for="masterPassword" class="form-label">Master Password</label>
+            <input
+              type="password"
+              class="form-control mb-3"
+              id="masterPassword"
+              placeholder="Enter master password"
+              required
+            />
+            <button type="submit" class="btn btn-primary w-100">Unlock</button>
+          </form>
+          <div id="unlockStatus" class="mt-3 small opacity-75"></div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="vault-card p-4 h-100">
+          <h3 class="mb-3">Generate Password</h3>
+          <label for="passwordLength" class="form-label">Length</label>
+          <input
+            type="number"
+            class="form-control mb-3"
+            id="passwordLength"
+            value="24"
+            min="12"
+            max="64"
+          />
+          <button class="btn btn-outline-light w-100 mb-3" onclick="generatePassword()">
+            Generate Strong Password
+          </button>
+          <div id="generatedPassword" class="password-box d-none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 justify-content-center mt-1">
+      <div class="col-lg-5">
+        <div class="vault-card p-4 h-100">
+          <h3 class="mb-3">Add / Update Entry</h3>
+          <form id="addForm">
+            <label class="form-label" for="service">Service</label>
+            <input class="form-control mb-3" id="service" placeholder="gmail" required />
+
+            <label class="form-label" for="username">Username / Email</label>
+            <input class="form-control mb-3" id="username" placeholder="you@example.com" required />
+
+            <label class="form-label" for="password">Password</label>
+            <input class="form-control mb-3" id="password" type="password" required />
+
+            <label class="form-label" for="notes">Notes</label>
+            <textarea class="form-control mb-3" id="notes" rows="3" placeholder="Optional notes"></textarea>
+
+            <button type="submit" class="btn btn-primary w-100">Save Entry</button>
+          </form>
+          <div id="saveStatus" class="mt-3 small opacity-75"></div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="vault-card p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Vault Entries</h3>
+            <button class="btn btn-sm btn-outline-light" onclick="loadEntries()">Refresh</button>
+          </div>
+
+          <input
+            class="form-control mb-3"
+            id="searchBox"
+            placeholder="Search service or username"
+            oninput="filterEntries()"
+          />
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Username</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="entriesTable">
+                <tr>
+                  <td colspan="3" class="opacity-75">Unlock vault to load entries.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let vaultUnlocked = false;
+    let allEntries = [];
+
+    document.getElementById("unlockForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const masterPassword = document.getElementById("masterPassword").value;
+
+      // Backend route needed: POST /api/unlock
+      const response = await fakeOrFetch("/api/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ masterPassword })
+      });
+
+      if (response.ok) {
+        vaultUnlocked = true;
+        document.getElementById("unlockStatus").textContent = "Vault unlocked.";
+        loadEntries();
+      } else {
+        document.getElementById("unlockStatus").textContent = "Incorrect password or backend not connected yet.";
+      }
+    });
+
+    document.getElementById("addForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const entry = {
+        service: document.getElementById("service").value.trim(),
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value,
+        notes: document.getElementById("notes").value.trim()
+      };
+
+      // Backend route needed: POST /api/entries
+      const response = await fakeOrFetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      });
+
+      if (response.ok) {
+        document.getElementById("saveStatus").textContent = "Entry saved.";
+        document.getElementById("addForm").reset();
+        loadEntries();
+      } else {
+        document.getElementById("saveStatus").textContent = "Could not save. Make sure the backend is connected.";
+      }
+    });
+
+    async function loadEntries() {
+      // Backend route needed: GET /api/entries
+      const response = await fakeOrFetch("/api/entries");
+      if (!response.ok) {
+        document.getElementById("entriesTable").innerHTML = `
+          <tr><td colspan="3" class="opacity-75">Backend not connected yet.</td></tr>
+        `;
+        return;
+      }
+
+      allEntries = await response.json();
+      renderEntries(allEntries);
+    }
+
+    function renderEntries(entries) {
+      const table = document.getElementById("entriesTable");
+      if (!entries.length) {
+        table.innerHTML = `<tr><td colspan="3" class="opacity-75">No entries found.</td></tr>`;
+        return;
+      }
+
+      table.innerHTML = entries.map(entry => `
+        <tr>
+          <td>${escapeHtml(entry.service)}</td>
+          <td>${escapeHtml(entry.username)}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-light" onclick="copyPassword('${escapeJs(entry.service)}')">Copy</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteEntry('${escapeJs(entry.service)}')">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function filterEntries() {
+      const search = document.getElementById("searchBox").value.toLowerCase();
+      const filtered = allEntries.filter(entry =>
+        entry.service.toLowerCase().includes(search) ||
+        entry.username.toLowerCase().includes(search)
+      );
+      renderEntries(filtered);
+    }
+
+    async function copyPassword(service) {
+      // Backend route needed: GET /api/entries/:service/password
+      const response = await fakeOrFetch(`/api/entries/${encodeURIComponent(service)}/password`);
+      if (!response.ok) {
+        alert("Could not retrieve password. Backend not connected yet.");
+        return;
+      }
+
+      const data = await response.json();
+      await navigator.clipboard.writeText(data.password);
+      alert("Password copied to clipboard.");
+    }
+
+    async function deleteEntry(service) {
+      if (!confirm(`Delete ${service}?`)) return;
+
+      // Backend route needed: DELETE /api/entries/:service
+      const response = await fakeOrFetch(`/api/entries/${encodeURIComponent(service)}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        loadEntries();
+      } else {
+        alert("Could not delete entry. Backend not connected yet.");
+      }
+    }
+
+    function generatePassword() {
+      const length = Number(document.getElementById("passwordLength").value) || 24;
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{};:,.?/";
+      let password = "";
+
+      const randomValues = new Uint32Array(length);
+      crypto.getRandomValues(randomValues);
+
+      for (let i = 0; i < length; i++) {
+        password += chars[randomValues[i] % chars.length];
+      }
+
+      const box = document.getElementById("generatedPassword");
+      box.textContent = password;
+      box.classList.remove("d-none");
+      document.getElementById("password").value = password;
+    }
+
+    async function fakeOrFetch(url, options = {}) {
+      try {
+        return await fetch(url, options);
+      } catch {
+        return { ok: false, json: async () => [] };
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeJs(value) {
+      return String(value).replaceAll("'", "\\'");
+    }
+  </script>
+</body>
+</html>
+
