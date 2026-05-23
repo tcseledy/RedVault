@@ -30,6 +30,7 @@ NONCE_LEN = 12
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+ACTIVE_VAULT_KEYS: dict[str, bytes] = {}
 
 
 @dataclass
@@ -58,8 +59,9 @@ def connect() -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS vault_meta (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
             password_hash TEXT NOT NULL,
             kdf_salt TEXT NOT NULL,
             created_at INTEGER NOT NULL
@@ -68,14 +70,17 @@ def init_schema(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS vault_entries (
+        CREATE TABLE IF NOT EXISTS user_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            service TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            user_id INTEGER NOT NULL,
+            service TEXT NOT NULL COLLATE NOCASE,
             username TEXT NOT NULL,
             nonce TEXT NOT NULL,
             ciphertext TEXT NOT NULL,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            UNIQUE(user_id, service),
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )
         """
     )
@@ -105,10 +110,6 @@ def derive_key(master_password: str, salt: bytes) -> bytes:
     )
 
 
-def get_meta(conn: sqlite3.Connection) -> sqlite3.Row | None:
-    return conn.execute("SELECT * FROM vault_meta WHERE id = 1").fetchone()
-
-
 def encrypt_entry(key: bytes, entry: Entry) -> tuple[str, str]:
     nonce = secrets.token_bytes(NONCE_LEN)
     plaintext = json.dumps(entry.__dict__, separators=(",", ":")).encode("utf-8")
@@ -125,11 +126,29 @@ def decrypt_entry(key: bytes, row: sqlite3.Row) -> Entry:
     return Entry(**json.loads(plaintext.decode("utf-8")))
 
 
-def require_key() -> bytes | None:
-    key_b64 = session.get("vault_key")
-    if not key_b64:
+def start_user_session(user_id: int, username: str, key: bytes) -> None:
+    end_user_session()
+    token = secrets.token_urlsafe(32)
+    ACTIVE_VAULT_KEYS[token] = key
+    session["login_token"] = token
+    session["user_id"] = user_id
+    session["username"] = username
+
+
+def end_user_session() -> None:
+    token = session.get("login_token")
+    if token:
+        ACTIVE_VAULT_KEYS.pop(token, None)
+    session.clear()
+
+
+def require_user() -> tuple[int, bytes] | None:
+    user_id = session.get("user_id")
+    token = session.get("login_token")
+    key = ACTIVE_VAULT_KEYS.get(token) if token else None
+    if not user_id or key is None:
         return None
-    return b64d(key_b64)
+    return user_id, key
 
 
 def generate_password(length: int = 24) -> str:
@@ -150,68 +169,86 @@ def home():
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
+@app.route("/vault")
+def vault_page():
+    return send_from_directory(FRONTEND_DIR, "user.html")
+
+
 @app.route("/api/status", methods=["GET"])
 def status():
     conn = connect()
     init_schema(conn)
-    initialized = get_meta(conn) is not None
-    return jsonify({"initialized": initialized, "unlocked": "vault_key" in session})
+    logged_in = require_user() is not None
+    return jsonify(
+        {
+            "loggedIn": logged_in,
+            "username": session.get("username") if logged_in else None,
+        }
+    )
 
 
-@app.route("/api/init", methods=["POST"])
-def init_vault():
+@app.route("/api/register", methods=["POST"])
+def register():
     data = request.get_json(force=True)
-    master_password = data.get("masterPassword", "")
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
 
-    if len(master_password) < 12:
-        return jsonify({"error": "Master password must be at least 12 characters."}), 400
+    if len(username) < 3 or len(username) > 64 or any(char.isspace() for char in username):
+        return jsonify({"error": "Username must be 3 to 64 characters with no spaces."}), 400
+    if len(password) < 12:
+        return jsonify({"error": "Password must be at least 12 characters."}), 400
 
     conn = connect()
     init_schema(conn)
-    if get_meta(conn) is not None:
-        return jsonify({"error": "Vault already initialized."}), 409
+    if conn.execute("SELECT id FROM users WHERE username = ? COLLATE NOCASE", (username,)).fetchone():
+        return jsonify({"error": "That username is already registered."}), 409
 
     salt = secrets.token_bytes(ARGON_SALT_LEN)
-    ph = password_hasher()
-    password_hash = ph.hash(master_password)
     now = int(time.time())
+    try:
+        cursor = conn.execute(
+            "INSERT INTO users (username, password_hash, kdf_salt, created_at) VALUES (?, ?, ?, ?)",
+            (username, password_hasher().hash(password), b64e(salt), now),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "That username is already registered."}), 409
 
-    conn.execute(
-        "INSERT INTO vault_meta (id, password_hash, kdf_salt, created_at) VALUES (1, ?, ?, ?)",
-        (password_hash, b64e(salt), now),
-    )
-    conn.commit()
-
-    key = derive_key(master_password, salt)
-    session["vault_key"] = b64e(key)
-    return jsonify({"ok": True})
+    start_user_session(cursor.lastrowid, username, derive_key(password, salt))
+    return jsonify({"ok": True, "username": username}), 201
 
 
-@app.route("/api/unlock", methods=["POST"])
-def unlock():
+@app.route("/api/login", methods=["POST"])
+def login():
     data = request.get_json(force=True)
-    master_password = data.get("masterPassword", "")
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
 
     conn = connect()
     init_schema(conn)
-    meta = get_meta(conn)
-    if meta is None:
-        return jsonify({"error": "Vault not initialized."}), 404
+    user = conn.execute("SELECT * FROM users WHERE username = ? COLLATE NOCASE", (username,)).fetchone()
+    if user is None:
+        return jsonify({"error": "Incorrect username or password."}), 401
 
-    ph = password_hasher()
     try:
-        ph.verify(meta["password_hash"], master_password)
+        password_hasher().verify(user["password_hash"], password)
     except (VerifyMismatchError, VerificationError):
-        return jsonify({"error": "Incorrect master password."}), 401
+        return jsonify({"error": "Incorrect username or password."}), 401
 
-    key = derive_key(master_password, b64d(meta["kdf_salt"]))
-    session["vault_key"] = b64e(key)
-    return jsonify({"ok": True})
+    key = derive_key(password, b64d(user["kdf_salt"]))
+    start_user_session(user["id"], user["username"], key)
+    return jsonify({"ok": True, "username": user["username"]})
 
 
 @app.route("/api/lock", methods=["POST"])
 def lock():
-    session.pop("vault_key", None)
+    end_user_session()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    end_user_session()
     return jsonify({"ok": True})
 
 
@@ -224,13 +261,17 @@ def api_generate():
 
 @app.route("/api/entries", methods=["GET"])
 def list_entries():
-    key = require_key()
-    if key is None:
-        return jsonify({"error": "Vault locked."}), 401
+    user = require_user()
+    if user is None:
+        return jsonify({"error": "Please log in."}), 401
+    user_id, key = user
 
     conn = connect()
     init_schema(conn)
-    rows = conn.execute("SELECT * FROM vault_entries ORDER BY service ASC").fetchall()
+    rows = conn.execute(
+        "SELECT * FROM user_entries WHERE user_id = ? ORDER BY service ASC",
+        (user_id,),
+    ).fetchall()
     entries = []
     for row in rows:
         try:
@@ -243,9 +284,10 @@ def list_entries():
 
 @app.route("/api/entries", methods=["POST"])
 def save_entry():
-    key = require_key()
-    if key is None:
-        return jsonify({"error": "Vault locked."}), 401
+    user = require_user()
+    if user is None:
+        return jsonify({"error": "Please log in."}), 401
+    user_id, key = user
 
     data = request.get_json(force=True)
     service = data.get("service", "").strip()
@@ -264,15 +306,15 @@ def save_entry():
 
     conn.execute(
         """
-        INSERT INTO vault_entries (service, username, nonce, ciphertext, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(service) DO UPDATE SET
+        INSERT INTO user_entries (user_id, service, username, nonce, ciphertext, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, service) DO UPDATE SET
             username = excluded.username,
             nonce = excluded.nonce,
             ciphertext = excluded.ciphertext,
             updated_at = excluded.updated_at
         """,
-        (service, username, nonce, ciphertext, now, now),
+        (user_id, service, username, nonce, ciphertext, now, now),
     )
     conn.commit()
     return jsonify({"ok": True})
@@ -280,12 +322,16 @@ def save_entry():
 
 @app.route("/api/entries/<service>/password", methods=["GET"])
 def get_password(service: str):
-    key = require_key()
-    if key is None:
-        return jsonify({"error": "Vault locked."}), 401
+    user = require_user()
+    if user is None:
+        return jsonify({"error": "Please log in."}), 401
+    user_id, key = user
 
     conn = connect()
-    row = conn.execute("SELECT * FROM vault_entries WHERE service = ? COLLATE NOCASE", (service,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM user_entries WHERE user_id = ? AND service = ? COLLATE NOCASE",
+        (user_id, service),
+    ).fetchone()
     if row is None:
         return jsonify({"error": "Entry not found."}), 404
 
@@ -299,16 +345,19 @@ def get_password(service: str):
 
 @app.route("/api/entries/<service>", methods=["DELETE"])
 def delete_entry(service: str):
-    key = require_key()
-    if key is None:
-        return jsonify({"error": "Vault locked."}), 401
+    user = require_user()
+    if user is None:
+        return jsonify({"error": "Please log in."}), 401
+    user_id, _ = user
 
     conn = connect()
-    conn.execute("DELETE FROM vault_entries WHERE service = ? COLLATE NOCASE", (service,))
+    conn.execute(
+        "DELETE FROM user_entries WHERE user_id = ? AND service = ? COLLATE NOCASE",
+        (user_id, service),
+    )
     conn.commit()
     return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5050, debug=True)
-

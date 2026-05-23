@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saved Passwords | Secure Password Vault</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #101828, #1d2939, #344054);
+      color: #f9fafb;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .vault-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+    }
+
+    .form-control {
+      background-color: rgba(255, 255, 255, 0.95);
+      border: none;
+    }
+
+    .btn-primary {
+      background-color: #7c3aed;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background-color: #6d28d9;
+    }
+
+    .btn-outline-light:hover {
+      color: #101828;
+    }
+
+    .password-box {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      word-break: break-all;
+      font-family: monospace;
+    }
+
+    .password-field {
+      font-family: monospace;
+    }
+
+    .badge-secure {
+      background-color: rgba(124, 58, 237, 0.25);
+      color: #ddd6fe;
+      border: 1px solid rgba(196, 181, 253, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark px-4 py-3">
+    <a class="navbar-brand mb-0 h1" href="/">Secure Password Vault</a>
+    <div class="d-flex gap-2">
+      <span class="navbar-text text-light" id="currentUser"></span>
+      <button class="btn btn-sm btn-outline-light" type="button" id="lockButton">Log Out</button>
+    </div>
+  </nav>
+
+  <main class="container py-4">
+    <div class="row justify-content-center">
+      <div class="col-lg-10">
+        <div class="vault-card p-4 p-md-5 mb-4">
+          <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
+            <div>
+              <span class="badge badge-secure rounded-pill px-3 py-2 mb-3">Private Vault</span>
+              <h1 class="fw-bold mb-2">Saved Passwords</h1>
+              <p class="text-light opacity-75 mb-0">
+                Reveal or copy a password only when you need to use it.
+              </p>
+            </div>
+            <button class="btn btn-primary" type="button" id="refreshButton">Refresh Entries</button>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+          <div class="col-md-7">
+            <div class="vault-card p-4 h-100">
+              <h2 class="h4 mb-3">Add or Update Password</h2>
+              <form id="addForm">
+                <label class="form-label" for="service">Website or Service</label>
+                <input class="form-control mb-3" id="service" placeholder="Gmail" required />
+
+                <label class="form-label" for="entryUsername">Username or Email</label>
+                <input class="form-control mb-3" id="entryUsername" placeholder="you@example.com" required />
+
+                <label class="form-label" for="entryPassword">Password</label>
+                <input class="form-control mb-3" id="entryPassword" type="password" required />
+
+                <label class="form-label" for="notes">Notes</label>
+                <textarea class="form-control mb-3" id="notes" rows="2" placeholder="Optional notes"></textarea>
+
+                <button type="submit" class="btn btn-primary">Save Password</button>
+              </form>
+              <p id="saveStatus" class="small opacity-75 mt-3 mb-0" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <div class="col-md-5">
+            <div class="vault-card p-4 h-100">
+              <h2 class="h4 mb-3">Generate Password</h2>
+              <label class="form-label" for="passwordLength">Length</label>
+              <input class="form-control mb-3" type="number" id="passwordLength" value="24" min="12" max="64" />
+              <button class="btn btn-outline-light w-100 mb-3" type="button" id="generateButton">
+                Generate Strong Password
+              </button>
+              <div id="generatedPassword" class="password-box d-none"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="vault-card p-4">
+          <label class="form-label" for="searchBox">Search your vault</label>
+          <input
+            class="form-control mb-4"
+            id="searchBox"
+            placeholder="Search service or username"
+            autocomplete="off"
+          />
+          <p id="statusMessage" class="text-light opacity-75 mb-3"></p>
+          <div id="passwordList" class="row g-3"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let allEntries = [];
+
+    document.getElementById("refreshButton").addEventListener("click", loadPasswords);
+    document.getElementById("searchBox").addEventListener("input", filterPasswords);
+    document.getElementById("lockButton").addEventListener("click", lockVault);
+    document.getElementById("generateButton").addEventListener("click", generatePassword);
+    document.getElementById("addForm").addEventListener("submit", savePassword);
+
+    function setStatus(message) {
+      document.getElementById("statusMessage").textContent = message;
+    }
+
+    async function loadPasswords() {
+      const response = await fetch("/api/entries");
+
+      if (response.status === 401) {
+        window.location.href = "/";
+        return;
+      }
+
+      if (!response.ok) {
+        setStatus("Could not load your stored passwords.");
+        return;
+      }
+
+      allEntries = await response.json();
+      filterPasswords();
+    }
+
+    function filterPasswords() {
+      const search = document.getElementById("searchBox").value.trim().toLowerCase();
+      const entries = allEntries.filter((entry) =>
+        entry.service.toLowerCase().includes(search) ||
+        entry.username.toLowerCase().includes(search)
+      );
+
+      renderPasswords(entries);
+    }
+
+    function renderPasswords(entries) {
+      const container = document.getElementById("passwordList");
+      container.replaceChildren();
+
+      if (!entries.length) {
+        setStatus(allEntries.length ? "No stored passwords match your search." : "No saved passwords yet.");
+        return;
+      }
+
+      setStatus(`${entries.length} saved password${entries.length === 1 ? "" : "s"} found.`);
+
+      entries.forEach((entry) => {
+        const column = document.createElement("div");
+        column.className = "col-md-6";
+
+        const card = document.createElement("div");
+        card.className = "vault-card p-4 h-100";
+
+        const title = document.createElement("h3");
+        title.className = "h5 mb-3";
+        title.textContent = entry.service;
+
+        const username = document.createElement("p");
+        username.className = "mb-3 opacity-75";
+        username.textContent = `Username: ${entry.username}`;
+
+        const password = document.createElement("input");
+        password.className = "form-control password-field mb-3";
+        password.type = "password";
+        password.placeholder = "Password hidden";
+        password.readOnly = true;
+
+        const actions = document.createElement("div");
+        actions.className = "d-flex gap-2 flex-wrap";
+
+        const viewButton = document.createElement("button");
+        viewButton.className = "btn btn-sm btn-primary";
+        viewButton.type = "button";
+        viewButton.textContent = "View Password";
+        viewButton.addEventListener("click", () => togglePassword(entry.service, password, viewButton));
+
+        const copyButton = document.createElement("button");
+        copyButton.className = "btn btn-sm btn-outline-light";
+        copyButton.type = "button";
+        copyButton.textContent = "Copy";
+        copyButton.addEventListener("click", () => copyPassword(entry.service));
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "btn btn-sm btn-outline-danger";
+        deleteButton.type = "button";
+        deleteButton.textContent = "Delete";
+        deleteButton.addEventListener("click", () => deletePassword(entry.service));
+
+        actions.append(viewButton, copyButton, deleteButton);
+        card.append(title, username, password, actions);
+        column.appendChild(card);
+        container.appendChild(column);
+      });
+    }
+
+    async function retrievePassword(service) {
+      const response = await fetch(`/api/entries/${encodeURIComponent(service)}/password`);
+
+      if (response.status === 401) {
+        window.location.href = "/";
+        return null;
+      }
+
+      if (!response.ok) {
+        setStatus("Could not retrieve that password.");
+        return null;
+      }
+
+      return response.json();
+    }
+
+    async function togglePassword(service, field, button) {
+      if (field.type === "text") {
+        field.type = "password";
+        button.textContent = "View Password";
+        return;
+      }
+
+      const data = await retrievePassword(service);
+      if (!data) {
+        return;
+      }
+
+      field.value = data.password;
+      field.type = "text";
+      button.textContent = "Hide Password";
+    }
+
+    async function copyPassword(service) {
+      const data = await retrievePassword(service);
+      if (!data) {
+        return;
+      }
+
+      await navigator.clipboard.writeText(data.password);
+      setStatus(`${service} password copied to clipboard.`);
+    }
+
+    async function savePassword(event) {
+      event.preventDefault();
+      const status = document.getElementById("saveStatus");
+      const entry = {
+        service: document.getElementById("service").value.trim(),
+        username: document.getElementById("entryUsername").value.trim(),
+        password: document.getElementById("entryPassword").value,
+        notes: document.getElementById("notes").value.trim()
+      };
+
+      const response = await fetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      });
+
+      if (response.status === 401) {
+        window.location.href = "/";
+        return;
+      }
+
+      if (!response.ok) {
+        status.textContent = "Could not save this password.";
+        return;
+      }
+
+      status.textContent = `${entry.service} saved to your vault.`;
+      document.getElementById("addForm").reset();
+      document.getElementById("generatedPassword").classList.add("d-none");
+      loadPasswords();
+    }
+
+    async function deletePassword(service) {
+      if (!window.confirm(`Delete ${service} from your vault?`)) {
+        return;
+      }
+
+      const response = await fetch(`/api/entries/${encodeURIComponent(service)}`, { method: "DELETE" });
+      if (response.ok) {
+        setStatus(`${service} deleted.`);
+        loadPasswords();
+      }
+    }
+
+    async function generatePassword() {
+      const length = Number(document.getElementById("passwordLength").value) || 24;
+      const response = await fetch(`/api/generate?length=${encodeURIComponent(length)}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      const generated = document.getElementById("generatedPassword");
+      generated.textContent = data.password;
+      generated.classList.remove("d-none");
+      document.getElementById("entryPassword").value = data.password;
+    }
+
+    async function lockVault() {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "/";
+    }
+
+    fetch("/api/status")
+      .then((response) => response.json())
+      .then((status) => {
+        if (!status.loggedIn) {
+          window.location.href = "/";
+          return;
+        }
+
+        document.getElementById("currentUser").textContent = `Signed in: ${status.username}`;
+        loadPasswords();
+      });
+  </script>
+</body>
+</html>

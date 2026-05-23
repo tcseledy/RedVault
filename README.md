@@ -26,3 +26,12 @@ python3 app.py
 ```
 
 Then open the local Flask URL in your browser.
+
+## Web Login
+
+1. Create an account with a username and a password of at least 12 characters.
+2. Save website passwords in your private vault.
+3. Log out when finished.
+4. Log in again later to reveal or copy your previously saved passwords.
+
+Each web account has its own encrypted password records.
