@@ -35,3 +35,7 @@ Then open the local Flask URL in your browser.
 4. Log in again later to reveal or copy your previously saved passwords.
 
 Each web account has its own encrypted password records.
+
+## Author
+
+Theo Cseledy
