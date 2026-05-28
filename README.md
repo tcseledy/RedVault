@@ -21,11 +21,19 @@ PasswordManagerApp is a secure password manager built with Flask and Argon2 hash
 
 ## How to Run
 
+Desktop app:
+
 ```bash
-python3 app.py
+open dist/TheoPasswordManager.app
 ```
 
-Then open the local Flask URL in your browser.
+Website mode:
+
+```bash
+/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 app.py --web
+```
+
+Then open `http://127.0.0.1:5050` in your browser.
 
 ## Web Login
 
