@@ -11,39 +11,61 @@
   <style>
     body {
       min-height: 100vh;
-      background: linear-gradient(135deg, #101828, #1d2939, #344054);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(235, 0, 20, 0.18), transparent 36%),
+        linear-gradient(135deg, #000000, #090909 55%, #150103);
       color: #f9fafb;
       font-family: Arial, Helvetica, sans-serif;
     }
 
     .vault-card {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(12, 12, 12, 0.92);
+      border: 1px solid rgba(235, 0, 20, 0.32);
       border-radius: 20px;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
       backdrop-filter: blur(10px);
     }
 
     .form-control {
-      background-color: rgba(255, 255, 255, 0.95);
-      border: none;
+      background-color: #080808;
+      border: 1px solid rgba(235, 0, 20, 0.28);
+      color: #ffffff;
+    }
+
+    .form-control:focus {
+      background-color: #0f0f0f;
+      border-color: #eb0014;
+      box-shadow: 0 0 0 0.25rem rgba(235, 0, 20, 0.2);
+      color: #ffffff;
+    }
+
+    .form-control::placeholder {
+      color: rgba(255, 255, 255, 0.45);
     }
 
     .btn-primary {
-      background-color: #7c3aed;
+      background-color: #eb0014;
       border: none;
     }
 
     .btn-primary:hover {
-      background-color: #6d28d9;
+      background-color: #ff2638;
+    }
+
+    .btn-outline-light {
+      border-color: rgba(235, 0, 20, 0.65);
+      color: #ffffff;
     }
 
     .btn-outline-light:hover {
-      color: #101828;
+      background-color: #eb0014;
+      border-color: #eb0014;
+      color: #ffffff;
     }
 
     .password-box {
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(235, 0, 20, 0.12);
+      border: 1px solid rgba(235, 0, 20, 0.3);
       border-radius: 12px;
       padding: 12px;
       word-break: break-all;
@@ -55,15 +77,20 @@
     }
 
     .badge-secure {
-      background-color: rgba(124, 58, 237, 0.25);
-      color: #ddd6fe;
-      border: 1px solid rgba(196, 181, 253, 0.35);
+      background-color: rgba(235, 0, 20, 0.16);
+      color: #ffb3ba;
+      border: 1px solid rgba(235, 0, 20, 0.45);
+    }
+
+    .brand-lock {
+      color: #eb0014;
+      font-weight: 800;
     }
   </style>
 </head>
 <body>
   <nav class="navbar navbar-dark px-4 py-3">
-    <a class="navbar-brand mb-0 h1" href="/">Secure Password Vault</a>
+    <a class="navbar-brand mb-0 h1" href="/"><span class="brand-lock">Lock</span> Vault</a>
     <div class="d-flex gap-2">
       <span class="navbar-text text-light" id="currentUser"></span>
       <button class="btn btn-sm btn-outline-light" type="button" id="lockButton">Log Out</button>

@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>TheoPasswordManager</string>
 	<key>CFBundleIconFile</key>
-	<string>icon-windowed.icns</string>
+	<string>icon.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>TheoPasswordManager</string>
 	<key>CFBundleInfoDictionaryVersion</key>

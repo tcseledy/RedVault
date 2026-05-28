@@ -39,6 +39,6 @@ exe = EXE(
 app = BUNDLE(
     exe,
     name='TheoPasswordManager.app',
-    icon=None,
+    icon='icon.icns',
     bundle_identifier=None,
 )
