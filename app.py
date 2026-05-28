@@ -369,7 +369,7 @@ class DesktopVaultApp:
         self.tk = tk
         self.ttk = ttk
         self.root = tk.Tk()
-        self.root.title("Theo Password Manager")
+        self.root.title("Red Vault")
         self.root.geometry("980x680")
         self.root.minsize(860, 580)
         self.apply_theme()
@@ -432,6 +432,22 @@ class DesktopVaultApp:
     def set_status(self, message: str) -> None:
         self.status_var.set(message)
 
+    def themed_entry(self, parent, **kwargs):
+        return self.tk.Entry(
+            parent,
+            bg=self.colors["field"],
+            fg=self.colors["text"],
+            insertbackground=self.colors["red"],
+            selectbackground=self.colors["red"],
+            selectforeground="#ffffff",
+            highlightbackground=self.colors["border"],
+            highlightcolor=self.colors["red"],
+            relief="flat",
+            borderwidth=8,
+            font=("Helvetica", 12),
+            **kwargs,
+        )
+
     def build_login(self) -> None:
         tk = self.tk
         ttk = self.ttk
@@ -441,15 +457,15 @@ class DesktopVaultApp:
         card = ttk.Frame(frame, padding=28, style="Card.TFrame")
         card.place(relx=0.5, rely=0.5, anchor="center")
 
-        ttk.Label(card, text="Theo Password Manager", style="Title.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(card, text="Red Vault", style="Title.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
         ttk.Label(card, text="Red lock. Local vault. Your passwords stay here.", style="Muted.TLabel", font=("Helvetica", 13)).grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 24))
 
         ttk.Label(card, text="Username", style="Card.TLabel").grid(row=2, column=0, sticky="w")
-        username = ttk.Entry(card, width=36)
+        username = self.themed_entry(card, width=36)
         username.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 12))
 
         ttk.Label(card, text="Master password", style="Card.TLabel").grid(row=4, column=0, sticky="w")
-        password = ttk.Entry(card, width=36, show="*")
+        password = self.themed_entry(card, width=36, show="*")
         password.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(4, 16))
 
         ttk.Button(card, text="Log In", style="Accent.TButton", command=lambda: self.login(username.get(), password.get())).grid(row=6, column=0, sticky="ew", padx=(0, 8))
@@ -520,7 +536,7 @@ class DesktopVaultApp:
 
         header = ttk.Frame(outer)
         header.pack(fill="x", pady=(0, 14))
-        ttk.Label(header, text="Secure Password Vault", style="Header.TLabel").pack(side="left")
+        ttk.Label(header, text="Red Vault", style="Header.TLabel").pack(side="left")
         ttk.Label(header, text=f"Signed in: {self.username}").pack(side="left", padx=(18, 0))
         ttk.Button(header, text="Log Out", command=self.logout).pack(side="right")
 
@@ -533,7 +549,7 @@ class DesktopVaultApp:
         body.add(right, weight=2)
 
         ttk.Label(left, text="Search").pack(anchor="w")
-        search = ttk.Entry(left, textvariable=self.search_var)
+        search = self.themed_entry(left, textvariable=self.search_var)
         search.pack(fill="x", pady=(4, 10))
         search.bind("<KeyRelease>", lambda _event: self.render_entry_list())
 
@@ -559,11 +575,11 @@ class DesktopVaultApp:
         form.pack(fill="x", pady=(12, 0))
 
         ttk.Label(form, text="Website or Service").grid(row=0, column=0, sticky="w")
-        ttk.Entry(form, textvariable=self.service_var).grid(row=1, column=0, sticky="ew", pady=(4, 10))
+        self.themed_entry(form, textvariable=self.service_var).grid(row=1, column=0, sticky="ew", pady=(4, 10))
         ttk.Label(form, text="Username or Email").grid(row=2, column=0, sticky="w")
-        ttk.Entry(form, textvariable=self.entry_username_var).grid(row=3, column=0, sticky="ew", pady=(4, 10))
+        self.themed_entry(form, textvariable=self.entry_username_var).grid(row=3, column=0, sticky="ew", pady=(4, 10))
         ttk.Label(form, text="Password").grid(row=4, column=0, sticky="w")
-        self.password_entry = ttk.Entry(form, textvariable=self.password_var, show="*")
+        self.password_entry = self.themed_entry(form, textvariable=self.password_var, show="*")
         self.password_entry.grid(row=5, column=0, sticky="ew", pady=(4, 10))
         ttk.Label(form, text="Notes").grid(row=6, column=0, sticky="w")
         self.notes_text = tk.Text(
@@ -573,6 +589,8 @@ class DesktopVaultApp:
             bg=self.colors["field"],
             fg=self.colors["text"],
             insertbackground=self.colors["red"],
+            selectbackground=self.colors["red"],
+            selectforeground="#ffffff",
             highlightbackground=self.colors["border"],
             highlightcolor=self.colors["red"],
             relief="flat",

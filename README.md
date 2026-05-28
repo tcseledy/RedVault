@@ -1,6 +1,6 @@
-# RedVault
+# Red Vault
 
-RedVault is a secure password manager built with Flask and Argon2 hashing. It allows users to generate, store, and retrieve encrypted passwords while demonstrating secure authentication and cybersecurity best practices.
+Red Vault is a secure password manager built with Flask, a native desktop interface, and Argon2 hashing. It allows users to generate, store, and retrieve encrypted passwords while demonstrating secure authentication and cybersecurity best practices.
 
 ## Features
 
@@ -24,7 +24,7 @@ RedVault is a secure password manager built with Flask and Argon2 hashing. It al
 Desktop app:
 
 ```bash
-open dist/TheoPasswordManager.app
+open dist/RedVault.app
 ```
 
 Website mode:

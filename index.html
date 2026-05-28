@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Log In | Secure Password Vault</title>
+  <title>Log In | Red Vault</title>
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
@@ -15,7 +15,13 @@
         radial-gradient(circle at 50% 0%, rgba(235, 0, 20, 0.18), transparent 36%),
         linear-gradient(135deg, #000000, #090909 55%, #150103);
       color: #f9fafb;
+      display: flex;
+      flex-direction: column;
       font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      flex: 1;
     }
 
     .vault-card {
@@ -29,6 +35,12 @@
     .form-control {
       background-color: #080808;
       border: 1px solid rgba(235, 0, 20, 0.28);
+      caret-color: #eb0014;
+      color: #ffffff;
+    }
+
+    .form-control::selection {
+      background: #eb0014;
       color: #ffffff;
     }
 
@@ -69,11 +81,16 @@
       color: #eb0014;
       font-weight: 800;
     }
+
+    .app-footer {
+      border-top: 1px solid rgba(235, 0, 20, 0.22);
+      color: #ffffff;
+    }
   </style>
 </head>
 <body>
   <nav class="navbar navbar-dark px-4 py-3">
-    <span class="navbar-brand mb-0 h1"><span class="brand-lock">Lock</span> Vault</span>
+    <a class="navbar-brand mb-0 h1" href="/"><span class="brand-lock">Red</span> Vault</a>
     <span class="badge badge-secure rounded-pill px-3 py-2">Argon2id + AES-GCM</span>
   </nav>
 
@@ -137,6 +154,10 @@
       </div>
     </div>
   </main>
+
+  <footer class="app-footer text-center small py-3">
+    &copy; Theo Cseledy
+  </footer>
 
   <script>
     async function postAccountAction(url, payload) {

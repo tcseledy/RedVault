@@ -1,0 +1,3 @@
+([('RedVault',
+   '/Users/theocseledy/TheoPasswordManager/dist/RedVault',
+   'EXECUTABLE')],)
