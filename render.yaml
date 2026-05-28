@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: red-vault
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: RED_VAULT_SECRET_KEY
+        generateValue: true
+      - key: RED_VAULT_COOKIE_SECURE
+        value: "1"
+      - key: RED_VAULT_DATA_DIR
+        value: /var/data
+    disk:
+      name: red-vault-data
+      mountPath: /var/data
+      sizeGB: 1

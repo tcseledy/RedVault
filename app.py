@@ -19,7 +19,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from flask import Flask, jsonify, request, session, send_from_directory
 
-APP_DIR = Path.home() / ".secure_password_vault"
+APP_DIR = Path(os.environ.get("RED_VAULT_DATA_DIR", Path.home() / ".secure_password_vault"))
 DB_PATH = APP_DIR / "vault.db"
 FRONTEND_DIR = Path(__file__).parent
 
@@ -31,7 +31,12 @@ ARGON_SALT_LEN = 16
 NONCE_LEN = 12
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
+app.secret_key = os.environ.get("RED_VAULT_SECRET_KEY") or secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("RED_VAULT_COOKIE_SECURE", "0") == "1",
+)
 ACTIVE_VAULT_KEYS: dict[str, bytes] = {}
 
 
@@ -169,6 +174,21 @@ def generate_password(length: int = 24) -> str:
 @app.route("/")
 def home():
     return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory(FRONTEND_DIR, "manifest.json")
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    return send_from_directory(FRONTEND_DIR, "service-worker.js", mimetype="application/javascript")
+
+
+@app.route("/icons/<path:filename>")
+def icons(filename: str):
+    return send_from_directory(FRONTEND_DIR / "icons", filename)
 
 
 @app.route("/vault")
@@ -750,7 +770,9 @@ class DesktopVaultApp:
 
 
 def run_server() -> None:
-    app.run(host="127.0.0.1", port=5050, debug=False, use_reloader=False)
+    host = os.environ.get("RED_VAULT_HOST", "127.0.0.1")
+    port = int(os.environ.get("RED_VAULT_PORT", "5050"))
+    app.run(host=host, port=port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
