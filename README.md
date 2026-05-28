@@ -1,6 +1,6 @@
-# PasswordManagerApp
+# RedVault
 
-PasswordManagerApp is a secure password manager built with Flask and Argon2 hashing. It allows users to generate, store, and retrieve encrypted passwords while demonstrating secure authentication and cybersecurity best practices.
+RedVault is a secure password manager built with Flask and Argon2 hashing. It allows users to generate, store, and retrieve encrypted passwords while demonstrating secure authentication and cybersecurity best practices.
 
 ## Features
 
